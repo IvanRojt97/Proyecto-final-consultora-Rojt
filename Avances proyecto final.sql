@@ -11,7 +11,7 @@ CREATE TABLE Cliente (
   Calle VARCHAR(15),
   Ciudad VARCHAR(15),
   CP VARCHAR(9),
-  Pagó VARCHAR(10),
+  Pagó VARCHAR(2),
   Monto VARCHAR(13)
 );
 
@@ -97,29 +97,29 @@ From Órdenes c
 INNER JOIN Equipo o ON c.Orden_id = o.Orden_id 
 Where Ciudad Like '%Buenos Aires%';
 
-Create view Empleados_En_Equipo_Buenos_Aires as
-Select Nombre,Apellido,Email,Teléfono,Calle,Ciudad,CP
+Create view Empleados_en_Buenos_Aires as
+Select c.Nombre,c.Apellido,c.Email,c.Teléfono,c.Calle,c.Ciudad,c.CP
 From Empleados c
 INNER JOIN Equipo o ON c.Empleados_id = o.Empleados_id 
-Where Ciudad Like '%Buenos Aires%';
+Where o.Ciudad Like '%Buenos Aires%';
 
 Create view Equipo_trabajando_Target_femenino as
-Select Target_id, Segmento_id, Nombre_target, Equipo_id
+Select c.Target_id, c.Segmento_id, c.Nombre_target, c.Equipo_id
 From Target c
 INNER JOIN Equipo o ON c.Equipo_id = o.Equipo_id 
 Where Nombre_Target Like '%Personas mujeres%';
 
 Create view órdenes_de_cada_cliente as
-Select Cliente_id,Razón_Social,Teléfono,Ciudad,CP,Pagó,Monto
+Select c.Cliente_id,c.Razón_Social,c.Teléfono,c.Ciudad,c.CP,c.Pagó,c.Monto
 From Cliente c
-INNER JOIN Órdenes o ON c.Cliente_id = o.Clientes_id
-Where c.Cliente_id = o.Clientes_id;
+INNER JOIN Órdenes o ON c.Cliente_id = o.Cliente_id
+Where c.Cliente_id = o.Cliente_id;
 
 Create view Empleados_disponibles_para_equipos_Buenos_Aires as
-Select Equipo_id,Nombre_Equipo,Nombre_técnica,Ciudad 
+Select c.Equipo_id,c.Nombre_Equipo,c.Nombre_técnica,c.Ciudad 
 From Equipo c
 INNER JOIN Empleados o ON c.Empleados_id = o.Empleados_id 
-Where Ciudad Like '%Buenos Aires%';
+Where c.Ciudad Like '%Buenos Aires%';
 
 DELIMITER //
 
@@ -169,33 +169,43 @@ CREATE PROCEDURE `sp_calcular_ingresos_junio` (OUT total INTEGER)
 
 BEGIN
 
+DECLARE Monto INT;
+
 DECLARE resultado FLOAT;
 
 SELECT COUNT(*) INTO Monto FROM Cliente;
-
-RETURN resultado;
 
 END //
 
 DELIMITER //
 
-Create PROCEDURE `sp_género_target` (Hombre VARCHAR(6), Mujer VARCHAR(5)) 
+Create PROCEDURE `sp_target_femenino` (INOUT Nombre_target VARCHAR (60)) 
 
 BEGIN
 
 DECLARE género FLOAT;
 
-SELECT Nombre_target FROM target;
+SELECT id INTO Nombre_target
 
-IF Nombre_target IS LIKE "Personas varones" THEN género = Hombre 
+FROM Target
 
-IF Nombre_target IS LIKE "Personas mujeres" THEN género = mujeres 
-	
-RETURN IF género =
+Where Nombre_target LIKE "Personas mujeres"; 
 
 END//
 
-DELIMITER //
+Create PROCEDURE `sp_target_masculino` (INOUT Nombre_target VARCHAR (60)) 
+
+BEGIN
+
+DECLARE género FLOAT;
+
+SELECT id INTO Nombre_target
+
+FROM Target
+
+Where Nombre_target LIKE "Personas varones"; 
+
+END//
 
 CREATE TRIGGER Log_Pagó 
 
@@ -203,7 +213,11 @@ AFTER INSERT ON órdenes
 
 FOR EACH ROW
 
-INSERT INTO cliente (pago) Values (si); 
+BEGIN
+
+INSERT INTO cliente (pagó) Values (si); 
+
+END;
 
 CREATE TRIGGER Log_Monto
 
@@ -211,9 +225,11 @@ BEFORE INSERT ON órdenes
 
 FOR EACH ROW
 
-INSERT INTO cliente (Monto) Values (3000000);
+BEGIN
 
-DELIMITER //
+INSERT INTO cliente (Monto) Values (NEW.monto (3000000));
+
+END;
 
 CREATE TRIGGER Log_Empleados_Delete
 
@@ -221,7 +237,13 @@ BEFORE INSERT ON Equipo
 
 FOR EACH ROW
 
-DELETE INTO Empleados (nombre)
+BEGIN
+
+DELETE FROM Empleados WHERE Nombre = NEW.Nombre;
+
+DELETE FROM Empleados WHERE Apellido = NEW.Apellido;
+
+END;
 
 CREATE TRIGGER Log_Empleados_Update 
 
@@ -229,6 +251,8 @@ AFTER UPDATE ON Equipo
 
 FOR EACH ROW 
 
-UPDATE Empleados (nombre) Values (si); 
+BEGIN
 
-DELIMITER //
+INSERT INTO Empleados (Empleados_id) VALUES (NEW.Empleados_id);
+
+END;
